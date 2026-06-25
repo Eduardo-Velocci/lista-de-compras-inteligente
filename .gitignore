@@ -1,0 +1,27 @@
+# Variáveis de ambiente / segredos
+.env
+
+# Banco de dados local
+database.db
+
+# Cache do Python
+__pycache__/
+*.py[cod]
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# Arquivos de IDE
+.vscode/
+.idea/
+
+# Notas fiscais / imagens de teste (opcional - remova se quiser versionar)
+*.jpg
+*.jpeg
+*.png
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

@@ -1,0 +1,37 @@
+[
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Maca",
+    "valor_produto": 8.04
+  },
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Molho",
+    "valor_produto": 5.79
+  },
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Queijo",
+    "valor_produto": 15.67
+  },
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Ovo",
+    "valor_produto": 12.90
+  },
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Refrigerante",
+    "valor_produto": 11.99
+  },
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Uva",
+    "valor_produto": 8.99
+  },
+  {
+    "dt_compra": "2026-05-24",
+    "produto": "Manga",
+    "valor_produto": 8.50
+  }
+]
