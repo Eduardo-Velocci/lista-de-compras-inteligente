@@ -26,11 +26,12 @@ with open ("prompt_template.md") as prompt_file:
 with open ("resposta_template.json") as resposta_file:
     resposta = json.load(resposta_file)
 
-@st.cache_resource(ttl='10min') # se mandar a msm nota fiscal em ate 10 minutos, não vai gerar novamente (pra não jogar tokens no lixo)
-def process_nf(prompt, resposta_template, produtos, img_file):
-    st.image(open_img)
-    prompt_exec = prompt.format(produtos="\n" .join(produtos), resposta=resposta_template ) 
-    resp = generate(prompt_exec, img_file.getvalue(),img_file.type)
+# A chave do cache é só a imagem (bytes + tipo): a mesma nota fiscal nunca é
+# reenviada ao Gemini, mesmo que a lista de produtos mude entre re-execuções.
+# O prefixo "_" no prompt o exclui da chave do cache.
+@st.cache_data(show_spinner="Lendo nota fiscal com IA...")
+def process_nf(img_bytes, img_mime, _prompt_exec):
+    resp = generate(_prompt_exec, img_bytes, img_mime)
     df = pd.DataFrame(json.loads(resp.text))
     return df
 
@@ -45,9 +46,13 @@ def get_produtos(engine):
         return []
 
 
-st.set_page_config(page_title="Lista de Compras")
+st.set_page_config(
+    page_title="Lista de Compras",
+    page_icon="🛒",
+    layout="centered",
+)
 
-st.markdown("# Lista de Compras Inteligente")
+st.markdown("# 🛒 Lista de Compras Inteligente")
 
 produtos = get_produtos(engine)
 
@@ -73,15 +78,39 @@ except Exception as err:
 if df_stats.empty:
     st.warning("Não há dados de compras no banco de dados. Por favor, importe um histórico de compras.")
 
-elif df_compra.empty:
-    st.success(f"Não há produtos que precisam ser comprados considerando {numero_dias_adiante} dias.")
-
 else:
-    st.dataframe(df_compra)
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Produtos cadastrados", len(df_stats))
+    col2.metric("Precisam repor", len(df_compra))
+    col3.metric("Valor médio", f"R$ {df_stats['avg_valor'].mean():.2f}")
+
+    if df_compra.empty:
+        st.success(f"Não há produtos que precisam ser comprados considerando {numero_dias_adiante} dias.")
+
+    else:
+        df_exibir = df_compra.copy()
+        df_exibir["dt_ultima_compra"] = pd.to_datetime(df_exibir["dt_ultima_compra"])
+        st.dataframe(
+            df_exibir,
+            column_config={
+                "produto": "Produto",
+                "dt_ultima_compra": st.column_config.DateColumn("Última compra", format="DD/MM/YYYY"),
+                "avg_valor": st.column_config.NumberColumn("Valor médio", format="R$ %.2f"),
+                "avg_dif_dias": st.column_config.NumberColumn("Intervalo médio (dias)", format="%.1f"),
+                "dias_ultima_compra": st.column_config.ProgressColumn(
+                    "Dias sem comprar",
+                    format="%.0f",
+                    min_value=0,
+                    max_value=max(float(df_stats["dias_ultima_compra"].max()), 1.0),
+                ),
+                "comprar": None,
+            },
+            hide_index=True,
+        )
 
 st.markdown("## Adcionar Compra")
 
-tab_produto, tab_historico, tab_nota_fiscal = st.tabs(["Produtos", "Histórico de Compras", "Nota Fiscal"])
+tab_produto, tab_historico, tab_nota_fiscal = st.tabs(["🛍️ Produtos", "📋 Histórico de Compras", "🧾 Nota Fiscal"])
 
 with tab_produto:
     st.markdown("### Adcionar Produto")
@@ -101,6 +130,7 @@ with tab_produto:
                 }
         df_insert = pd.DataFrame([data])
         df_insert.to_sql("compras", engine, if_exists="append", index=False)
+        st.toast("Compra registrada!", icon="✅")
         st.success("Compra do Produto Registrada com Sucesso!")
 
 
@@ -115,6 +145,7 @@ with tab_historico:
         
         if st.button("Salvar Histórico de Compras"):
             df.to_sql("compras", engine, if_exists="append", index=False)
+            st.toast("Histórico salvo!", icon="✅")
             st.success("Histórico de Compras Salvo com Sucesso!")
 
 with tab_nota_fiscal:
@@ -122,9 +153,12 @@ with tab_nota_fiscal:
     open_img = st.file_uploader("Envie uma Nota Fiscal", type=["png", "jpeg"])
 
     if open_img:
-        df = process_nf(prompt=prompt, resposta_template=resposta, produtos=produtos, img_file=open_img)
+        st.image(open_img)
+        prompt_exec = prompt.format(produtos="\n".join(produtos), resposta=resposta)
+        df = process_nf(open_img.getvalue(), open_img.type, prompt_exec)
         df = st.data_editor(df)
 
         if st.button("Registrar Dados"):
             df.to_sql("compras", engine, if_exists="append", index=False)
+            st.toast("Nota fiscal registrada!", icon="✅")
             st.success("Histórico de Compras Salvo com Sucesso!")
